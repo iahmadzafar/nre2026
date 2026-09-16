@@ -103,6 +103,23 @@ body{font-family:var(--sans);color:var(--txt);background:var(--main);display:fle
 .q-opt.reveal-wrong{border-color:var(--no);background:var(--no-bg)}
 .q-opt.reveal-wrong .letter{color:var(--no)}
 
+/* ── PRACTICE MODE ── */
+.pbar{margin-bottom:18px}
+.pbar-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.pscore{font-family:var(--mono);font-weight:600;color:var(--accent)}
+.pbar-track{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+.pbar-fill{height:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .3s}
+.pnav{display:flex;justify-content:flex-end;margin-top:18px}
+.pill.next{background:var(--txt);color:#fff;border-color:var(--txt)}
+.pill.next:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.verdict{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 16px;border-radius:8px;font-weight:600;font-size:14.5px}
+.v-right{background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok)}
+.v-wrong{background:var(--no-bg);border:1px solid var(--no-border);color:var(--no)}
+.v-icon{font-weight:800;font-size:17px}
+.r-num{font-family:var(--mono);font-weight:700;font-size:44px;color:var(--accent)}
+.r-pct{font-family:var(--mono);font-weight:600;font-size:18px;color:var(--muted)}
+.r-msg{font-size:15px;color:var(--txt2);margin-top:6px}
+
 /* ── ANSWER KEY CARD ── */
 .kcard{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden}
 .kcard-head{padding:20px 24px 0;display:flex;gap:14px}
@@ -451,7 +468,7 @@ function setModeAndLoad(k, m){
   const d = DATA[k];
   $('ctTitle').textContent = d.name;
   $('ctBadge').textContent = d.questions.length + ' Questions';
-  $('ctSub').textContent = m==='paper' ? 'Answer sheet · select your answers, then reveal' : 'Full breakdown · concept, discriminator, trap, future alert, kill table';
+  $('ctSub').textContent = m==='paper' ? 'Practice mode · one question at a time, instant right/wrong with full reason' : 'Full breakdown · concept, discriminator, trap, future alert, kill table';
   render();
 }
 
@@ -469,46 +486,103 @@ function render(){
   window.scrollTo(0,0);
 }
 
-/* ── PAPER MODE ── */
+/* ── PRACTICE MODE ── */
+let pq = 0, pCorrect = 0, pAnswered = false;
+
 function renderPaper(d, el){
-  let h = `<div class="score-bar" id="scoreBar"><span class="score-num" id="scoreNum"></span><span class="score-label" id="scoreLabel"></span></div>`;
-  for (const q of d.questions) {
-    h += `<div class="qcard"><div class="qcard-head"><div class="q-num">${q.n}</div><div class="q-stem">${esc(q.s)}</div></div><div class="q-opts">`;
-    for (const [l, txt] of q.o) {
-      h += `<div class="q-opt" data-q="${q.n}" data-l="${l}" onclick="pick(this,${q.n},'${l}')"><span class="letter">${l})</span><span>${esc(txt)}</span></div>`;
+  pq = 0; pCorrect = 0; pAnswered = false;
+  el.innerHTML = `
+    <div class="pbar">
+      <div class="pbar-top"><span id="pProg">Question 1 of ${d.questions.length}</span><span class="pscore" id="pScore">✓ 0 &middot; ✗ 0</span></div>
+      <div class="pbar-track"><div class="pbar-fill" id="pFill" style="width:0%"></div></div>
+    </div>
+    <div id="pCard"></div>`;
+  showQ(d);
+}
+
+function showQ(d){
+  const q = d.questions[pq];
+  pAnswered = false;
+  const card = $('pCard');
+  card.innerHTML = `
+    <div class="qcard" id="qCard">
+      <div class="qcard-head"><div class="q-num">${q.n}</div><div class="q-stem">${esc(q.s)}</div></div>
+      <div class="q-opts">
+        ${q.o.map(([l, txt]) => `<div class="q-opt" data-l="${l}" onclick="answer('${l}')"><span class="letter">${l})</span><span>${esc(txt)}</span></div>`).join('')}
+      </div>
+      <div id="fbPanel" style="display:none"></div>
+      <div class="pnav" id="pNav" style="display:none">
+        <button class="pill next" onclick="nextQ()">${pq === d.questions.length - 1 ? 'See Results' : 'Next Question'}</button>
+      </div>
+    </div>`;
+}
+
+function answer(l){
+  if(pAnswered) return;
+  pAnswered = true;
+  const d = DATA[current];
+  const q = d.questions[pq];
+  const cl = q.c[0];
+  const right = (l === cl);
+  if(right) pCorrect++;
+  document.querySelectorAll('#qCard .q-opt').forEach(o => {
+    o.style.cursor = 'default';
+    if(o.dataset.l === cl) o.classList.add('reveal-correct');
+    else if(o.dataset.l === l) o.classList.add('reveal-wrong');
+  });
+  const fb = $('fbPanel');
+  fb.style.display = '';
+  let bh = `
+    <div class="verdict ${right ? 'v-right' : 'v-wrong'}">
+      <span class="v-icon">${right ? '&#10003;' : '&#10007;'}</span>
+      <span>${right ? 'Correct — well done.' : 'Incorrect — the correct answer is ' + esc(q.c.join(' ')) + '.'}</span>
+    </div>
+    <div class="k-break">`;
+  bh += field('Concept', q.co);
+  bh += field('Cognitive Task', q.ct);
+  bh += field('Why Correct', q.w, true);
+  bh += field('Discriminator', q.d);
+  bh += field('Trap', q.t);
+  bh += field('Future Alert', q.f);
+  bh += field('Rule', q.r, true);
+  bh += `</div>`;
+  if(q.x && q.x.length){
+    bh += `<div class="kkill"><table><thead><tr><th>Option</th><th>Why Wrong</th></tr></thead><tbody>`;
+    for (const [opt, why] of q.x){
+      bh += `<tr><td class="opt-col">${esc(opt)}</td><td>${esc(why)}</td></tr>`;
     }
-    h += `</div></div>`;
+    bh += `</tbody></table></div>`;
   }
-  h += `<div style="text-align:center;padding:24px 0"><button onclick="revealAll()" style="padding:12px 32px;border:none;border-radius:8px;background:var(--txt);color:#fff;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s">Reveal Answers</button></div>`;
-  el.innerHTML = h;
+  fb.innerHTML = bh;
+  $('pNav').style.display = 'flex';
+  $('pScore').textContent = `✓ ${pCorrect} &middot; ✗ ${(pq + 1) - pCorrect}`;
+  $('pFill').style.width = Math.round(((pq + 1) / d.questions.length) * 100) + '%';
 }
 
-function pick(el, qn, l){
-  if(el.closest('.qcard').classList.contains('revealed')) return;
-  document.querySelectorAll(`.q-opt[data-q="${qn}"]`).forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  answers[qn] = l;
+function nextQ(){
+  const d = DATA[current];
+  if(pq < d.questions.length - 1){
+    pq++; showQ(d); $('pProg').textContent = `Question ${pq + 1} of ${d.questions.length}`;
+  } else results(d);
 }
 
-function revealAll(){
-  let correct = 0;
-  for (const q of DATA[current].questions) {
-    const card = [...document.querySelectorAll('.qcard')].find(c => c.querySelector('.q-num').textContent == q.n);
-    if(!card) continue;
-    card.classList.add('revealed');
-    const correctLetter = q.c[0];
-    card.querySelectorAll('.q-opt').forEach(o => {
-      const l = o.dataset.l;
-      o.style.cursor = 'default';
-      if(l === correctLetter) o.classList.add('reveal-correct');
-      else if(l === answers[q.n]) o.classList.add('reveal-wrong');
-    });
-    if(answers[q.n] === correctLetter) correct++;
-  }
-  const total = DATA[current].questions.length;
-  $('scoreBar').classList.add('show');
-  $('scoreNum').textContent = `${correct}/${total}`;
-  $('scoreLabel').textContent = `You scored ${Math.round(correct/total*100)}% (${correct} correct out of ${total})`;
+function results(d){
+  const total = d.questions.length;
+  const pct = Math.round(pCorrect / total * 100);
+  const msg = pct >= 80 ? 'Excellent — mastery level. Review the misses in the key, then move on.' : pct >= 60 ? 'Solid — clean up the traps below 80%.' : pct >= 40 ? 'Keep going — work through the breakdowns, then retry.' : 'Revise this section first, then come back.';
+  $('pCard').innerHTML = `
+    <div class="qcard" style="text-align:center;padding:48px">
+      <div class="r-num">${pCorrect}/${total}</div>
+      <div class="r-pct">${pct}%</div>
+      <div class="r-msg">${msg}</div>
+      <div style="margin-top:24px;display:flex;gap:10px;justify-content:center">
+        <button class="pill" onclick="setModeAndLoad(current,'key')">Review Answer Key</button>
+        <button class="pill" onclick="setModeAndLoad(current,'paper')">Restart Section</button>
+      </div>
+    </div>`;
+  $('pProg').textContent = 'Done';
+  $('pScore').textContent = `✓ ${pCorrect} &middot; ✗ ${total - pCorrect}`;
+  $('pFill').style.width = '100%';
 }
 
 /* ── KEY MODE ── */
