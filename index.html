@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="rootHtml">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,6 +22,32 @@
 }
 html{font-size:15px;scroll-behavior:smooth}
 body{font-family:var(--sans);color:var(--txt);background:var(--main);display:flex;min-height:100vh;line-height:1.6}
+
+/* ── THEMES ── */
+:root.dark{
+  --sb-bg:#0a0f1e;--sb-hover:#131a2c;--sb-head:#060a14;
+  --main:#0b1120;--card:#121a2e;--accent:#d4a843;--accent2:#e6c15c;--accent-light:#1b2540;
+  --ok:#34d399;--ok-bg:#0d2a22;--ok-border:#14532d;
+  --no:#f87171;--no-bg:#2c1215;--no-border:#7f1d1d;
+  --txt:#e5e9f2;--txt2:#c1c9d8;--muted:#8a94a8;--muted2:#6b7488;
+  --border:#1f2a44;--border2:#2b3857;
+}
+.dark .q-opt .letter{background:#1f2a44;color:#c1c9d8}
+.dark .q-opt.selected{background:#16233f}
+.dark .q-opt.selected .letter{background:#3b82f6}
+.dark .k-opt.is-wrong{color:#8a94a8}
+.dark .kkill td{border-bottom:1px solid var(--border)}
+.dark .qcard:hover{box-shadow:0 2px 14px rgba(0,0,0,0.4)}
+.dark .pill.on{background:var(--accent);color:#0b1120;border-color:var(--accent)}
+.dark .k-label.c-con{background:rgba(79,70,229,0.16);color:#a5b4fc}
+.dark .k-label.c-ct{background:rgba(124,58,237,0.16);color:#c4b5fd}
+.dark .k-label.c-w{background:rgba(5,150,105,0.16);color:#6ee7b7}
+.dark .k-label.c-d{background:rgba(14,116,144,0.16);color:#67e8f9}
+.dark .k-label.c-t{background:rgba(225,29,72,0.18);color:#fda4af}
+.dark .k-label.c-f{background:rgba(180,83,9,0.18);color:#fcd34d}
+.dark .k-label.c-r{background:rgba(146,64,14,0.18);color:#fde68a}
+body.sb-hidden #sidebar{display:none}
+body.sb-hidden #main{margin-left:0}
 
 /* ── SIDEBAR ── */
 #sidebar{width:var(--sb);min-height:100vh;background:linear-gradient(180deg,var(--sb-head) 0%,var(--sb-bg) 120px);position:fixed;left:0;top:0;bottom:0;z-index:100;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.04);overflow:hidden}
@@ -69,7 +95,7 @@ body{font-family:var(--sans);color:var(--txt);background:var(--main);display:fle
 
 /* ── CONTENT HEADER ── */
 .ct-head{background:var(--card);border-bottom:1px solid var(--border);padding:22px 36px;position:sticky;top:0;z-index:50}
-.ct-title-row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.ct-title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .ct-title{font-family:var(--serif);font-size:24px;font-weight:700;color:var(--txt)}
 .ct-badge{font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:3px 10px;border-radius:20px;letter-spacing:0.3px}
 .ct-sub{font-size:13px;color:var(--muted);margin-top:2px}
@@ -81,6 +107,8 @@ body{font-family:var(--sans);color:var(--txt);background:var(--main);display:fle
 .timer-box.running{color:var(--accent)}
 .timer-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:12px}
 .timer-btn:hover{border-color:var(--accent);color:var(--accent)}
+.icon-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:var(--card);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:14px;color:var(--muted)}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
 
 /* ── CONTENT BODY ── */
 .ct-body{padding:30px 40px 70px;max-width:none}
@@ -439,6 +467,8 @@ body{font-family:var(--sans);color:var(--txt);background:var(--main);display:fle
       <div class="ct-title-row">
         <span class="ct-title" id="ctTitle"></span>
         <span class="ct-badge" id="ctBadge"></span>
+        <button class="icon-btn" onclick="toggleSidebar()" title="Toggle sidebar" style="margin-left:auto">&#9776;</button>
+        <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">&#9788;</button>
       </div>
       <div class="ct-sub" id="ctSub"></div>
       <div class="ct-controls">
@@ -484,7 +514,7 @@ function setModeAndLoad(k, m){
   const d = DATA[k];
   $('ctTitle').textContent = d.name;
   $('ctBadge').textContent = d.questions.length + ' Questions';
-  $('ctSub').textContent = m==='paper' ? 'Practice mode · one question at a time, instant right/wrong with full reason' : 'Full breakdown · concept, discriminator, trap, future alert, kill table';
+  $('ctSub').textContent = m==='paper' ? 'Practice mode · one question at a time, instant right/wrong with full reason' : 'Answer key · correct answers highlighted, full breakdown one question at a time';
   render();
 }
 
@@ -612,34 +642,65 @@ function results(d){
 }
 
 /* ── KEY MODE ── */
+let kIdx = 0;
 function renderKey(d, el){
-  let h = '';
-  for (const q of d.questions) {
-    h += `<div class="kcard"><div class="kcard-head"><div class="q-num">${q.n}</div><div class="q-stem">${esc(q.s)}</div></div><div class="kcard-body">`;
-    for (const [l, txt] of q.o) {
-      const cl = q.c[0].replace(/\)/g, '');
-      const cls = l === cl ? 'is-correct' : 'is-wrong';
-      h += `<div class="k-opt ${cls}"><span class="letter">${l})</span><span>${esc(txt)}</span></div>`;
-    }
-    h += `<div class="k-break">`;
-    h += field('Concept', q.co, false, 'c-con');
-    h += field('Cognitive Task', q.ct, false, 'c-ct');
-    h += field('Why Correct', q.w, true, 'c-w');
-    h += field('Discriminator', q.d, false, 'c-d');
-    h += field('Trap', q.t, false, 'c-t');
-    h += field('Future Alert', q.f, false, 'c-f');
-    h += field('Rule', q.r, true, 'c-r');
-    h += `</div>`;
-    if(q.x && q.x.length) {
-      h += `<div class="kkill"><table><thead><tr><th>Option</th><th>Why Wrong</th></tr></thead><tbody>`;
-      for (const [opt, why] of q.x) {
-        h += `<tr><td class="opt-col">${esc(opt)}</td><td>${esc(why)}</td></tr>`;
-      }
-      h += `</tbody></table></div>`;
-    }
-    h += `</div></div>`;
+  kIdx = 0;
+  el.innerHTML = `
+    <div class="pbar">
+      <div class="pbar-top"><span id="pProg">Question 1 of ${d.questions.length}</span><span class="pscore" style="color:var(--ok)">Answer Key</span></div>
+      <div class="pbar-track"><div class="pbar-fill" id="pFill" style="width:${Math.max(2, Math.round(100/d.questions.length))}%"></div></div>
+    </div>
+    <div class="pwrap">
+      <div class="qcol"><div id="pCard"></div></div>
+      <div class="fbcol"><div id="fbPanel"></div></div>
+    </div>`;
+  showKey(d);
+}
+function showKey(d){
+  const q = d.questions[kIdx];
+  const cl = q.c[0].replace(/\)/g, '');
+  let oh = '';
+  for (const [l, txt] of q.o){
+    const cls = l === cl ? 'is-correct' : 'is-wrong';
+    oh += `<div class="k-opt ${cls}"><span class="letter">${l})</span><span>${esc(txt)}</span></div>`;
   }
-  el.innerHTML = h;
+  $('pCard').innerHTML = `
+    <div class="qcard" id="qCard">
+      <div class="qcard-head"><div class="q-num">${q.n}</div><div class="q-stem">${esc(q.s)}</div></div>
+      <div class="q-opts" style="margin-left:46px">${oh}</div>
+    </div>`;
+  let bh = `
+    <div class="verdict v-right"><span class="v-icon">&#10003;</span><span>Correct answer — ${esc(q.c.join(' '))}</span></div>
+    <div class="k-break">`;
+  bh += field('Concept', q.co, false, 'c-con');
+  bh += field('Cognitive Task', q.ct, false, 'c-ct');
+  bh += field('Why Correct', q.w, true, 'c-w');
+  bh += field('Discriminator', q.d, false, 'c-d');
+  bh += field('Trap', q.t, false, 'c-t');
+  bh += field('Future Alert', q.f, false, 'c-f');
+  bh += field('Rule', q.r, true, 'c-r');
+  bh += `</div>`;
+  if(q.x && q.x.length){
+    bh += `<div class="kkill"><table><thead><tr><th>Option</th><th>Why Wrong</th></tr></thead><tbody>`;
+    for (const [opt, why] of q.x){
+      bh += `<tr><td class="opt-col">${esc(opt)}</td><td>${esc(why)}</td></tr>`;
+    }
+    bh += `</tbody></table></div>`;
+  }
+  bh += `<div class="pnav"><button class="pill" onclick="prevK()">&#8249;&nbsp;Prev</button><button class="pill next" onclick="nextK()">Next&nbsp;&#8250;</button></div>`;
+  $('fbPanel').innerHTML = bh;
+  $('pProg').textContent = `Question ${kIdx + 1} of ${d.questions.length}`;
+  $('pFill').style.width = Math.round(((kIdx + 1) / d.questions.length) * 100) + '%';
+}
+function nextK(){
+  const d = DATA[current];
+  kIdx = (kIdx < d.questions.length - 1) ? kIdx + 1 : 0;
+  showKey(d);
+}
+function prevK(){
+  const d = DATA[current];
+  kIdx = (kIdx > 0) ? kIdx - 1 : d.questions.length - 1;
+  showKey(d);
 }
 
 function field(label, val, full, cls){
@@ -648,6 +709,21 @@ function field(label, val, full, cls){
 }
 
 function esc(s){ return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+/* ── CHROME: SIDEBAR + THEME ── */
+function toggleSidebar(){ document.body.classList.toggle('sb-hidden'); }
+function applyTheme(){
+  const root = document.getElementById('rootHtml');
+  const dark = root.classList.contains('dark');
+  $('themeBtn').innerHTML = dark ? '&#9790;' : '&#9788;';
+}
+function toggleTheme(){
+  const root = document.getElementById('rootHtml');
+  root.classList.toggle('dark');
+  applyTheme();
+  try{ localStorage.setItem('ts-theme', root.classList.contains('dark') ? 'dark' : 'light'); }catch(e){}
+}
+(function(){ try{ if(localStorage.getItem('ts-theme')==='dark') document.getElementById('rootHtml').classList.add('dark'); }catch(e){} applyTheme(); })();
 
 /* ── TIMER ── */
 function toggleTimer(){
