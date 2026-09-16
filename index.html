@@ -522,7 +522,7 @@ function answer(l){
   pAnswered = true;
   const d = DATA[current];
   const q = d.questions[pq];
-  const cl = q.c[0];
+  const cl = q.c[0].replace(/\)/g, '');
   const right = (l === cl);
   if(right) pCorrect++;
   document.querySelectorAll('#qCard .q-opt').forEach(o => {
@@ -555,7 +555,7 @@ function answer(l){
   }
   fb.innerHTML = bh;
   $('pNav').style.display = 'flex';
-  $('pScore').textContent = `✓ ${pCorrect} &middot; ✗ ${(pq + 1) - pCorrect}`;
+  $('pScore').textContent = `✓ ${pCorrect} · ✗ ${(pq + 1) - pCorrect}`;
   $('pFill').style.width = Math.round(((pq + 1) / d.questions.length) * 100) + '%';
 }
 
@@ -581,7 +581,7 @@ function results(d){
       </div>
     </div>`;
   $('pProg').textContent = 'Done';
-  $('pScore').textContent = `✓ ${pCorrect} &middot; ✗ ${total - pCorrect}`;
+  $('pScore').textContent = `✓ ${pCorrect} · ✗ ${total - pCorrect}`;
   $('pFill').style.width = '100%';
 }
 
@@ -591,7 +591,8 @@ function renderKey(d, el){
   for (const q of d.questions) {
     h += `<div class="kcard"><div class="kcard-head"><div class="q-num">${q.n}</div><div class="q-stem">${esc(q.s)}</div></div><div class="kcard-body">`;
     for (const [l, txt] of q.o) {
-      const cls = l === q.c[0] ? 'is-correct' : 'is-wrong';
+      const cl = q.c[0].replace(/\)/g, '');
+      const cls = l === cl ? 'is-correct' : 'is-wrong';
       h += `<div class="k-opt ${cls}"><span class="letter">${l})</span><span>${esc(txt)}</span></div>`;
     }
     h += `<div class="k-break">`;
